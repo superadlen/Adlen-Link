@@ -13,7 +13,7 @@ BASE_URL = "https://api.subdl.com/api/v1"
 # Le manifeste indique à Stremio ce que fait l'addon
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper",
     "logo": "https://i.pinimg.com/736x/83/65/c1/8365c1ce87b74cff2810b3826efc6db5.jpg",
@@ -28,7 +28,7 @@ MANIFEST = {
 @app.route('/')
 def root():
     """Route racine, simple confirmation que l'addon tourne."""
-    return "Addon Sous-titres Arabes OK !"
+    return "Addon Sous-titres Arabes OK ! By Superadlen 💯"
 
 @app.route('/favicon.ico')
 def favicon():
