@@ -16,7 +16,7 @@ MANIFEST = {
     "version": "1.0.3",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper",
-    "logo": "https://i.pinimg.com/736x/01/db/9a/01db9a2272b7105e93e55fc12f3e6389.jpg",
+    "logo": "https://i.imgur.com/o1hZxni.png",
     "types": ["movie", "series"],
     "catalogs": [],
     "resources": ["subtitles"],
