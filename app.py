@@ -74,12 +74,14 @@ def get_subtitles(type, extra_path):
                     download_url = f"https://dl.subdl.com{sub['url']}"
 
                 if download_url:
-                    file_name = sub.get("name", "")
+                    file_name = sub.get("name", "").replace('.zip', '.srt')
                     
-                    # Au lieu de donner le lien zip, on donne un lien vers notre serveur qui va dézipper
+                    # Créer un ID unique avec l'URL encodée
+                    subtitle_id = f"sub_{abs(hash(download_url))}"
+                    
                     subtitle_entry = {
-                        "id": file_name,
-                        "url": f"https://dz-sub-arabic.onrender.com/unzip?url={download_url}",
+                        "id": subtitle_id,
+                        "url": f"{RENDER_URL}/subtitle/{subtitle_id}.srt?url={requests.utils.quote(download_url)}",
                         "lang": "ara",
                         "name": file_name
                     }
@@ -92,49 +94,53 @@ def get_subtitles(type, extra_path):
         print(f"Erreur: {e}")
         return jsonify({"subtitles": []})
 
-@app.route('/unzip')
-def unzip_subtitle():
+@app.route('/subtitle/<subtitle_id>.srt')
+def serve_subtitle(subtitle_id):
     """
-    Télécharge le fichier zip depuis SubDL, le décompresse, 
-    et renvoie le premier fichier .srt ou .vtt trouvé
+    Télécharge et décompresse le sous-titre, puis le renvoie en .srt
     """
     try:
         zip_url = request.args.get('url')
         if not zip_url:
             return "URL manquante", 400
         
-        # Télécharger le fichier zip
-        response = requests.get(zip_url, timeout=15)
+        # Télécharger le zip
+        print(f"Téléchargement: {zip_url}")
+        response = requests.get(zip_url, timeout=15, headers={
+            'User-Agent': 'Mozilla/5.0'
+        })
+        
         if response.status_code != 200:
+            print(f"Erreur téléchargement: {response.status_code}")
             return "Fichier non trouvé", 404
         
-        # Décompresser en mémoire
+        # Décompresser
         with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-            # Chercher un fichier .srt ou .vtt
             for file_name in z.namelist():
                 if file_name.lower().endswith(('.srt', '.vtt')):
-                    # Lire le contenu du fichier
                     subtitle_content = z.read(file_name)
                     
-                    # Déterminer le type MIME
-                    if file_name.lower().endswith('.srt'):
-                        mimetype = 'text/plain'
-                    else:
-                        mimetype = 'text/vtt'
+                    # Si c'est du VTT, le convertir en SRT simple
+                    if file_name.lower().endswith('.vtt'):
+                        subtitle_content = subtitle_content.decode('utf-8', errors='ignore')
+                        subtitle_content = subtitle_content.replace('WEBVTT\n\n', '')
                     
-                    # Envoyer le fichier directement
-                    return send_file(
-                        io.BytesIO(subtitle_content),
-                        mimetype=mimetype,
-                        as_attachment=False,
-                        download_name=file_name
+                    print(f"Fichier trouvé: {file_name}")
+                    return Response(
+                        subtitle_content,
+                        mimetype='text/plain; charset=utf-8',
+                        headers={
+                            'Content-Disposition': 'inline',
+                            'Access-Control-Allow-Origin': '*'
+                        }
                     )
         
-        return "Aucun fichier .srt ou .vtt trouvé dans le zip", 404
+        print("Aucun fichier srt/vtt trouvé")
+        return "Aucun sous-titre trouvé", 404
         
     except Exception as e:
-        print(f"Erreur décompression: {e}")
-        return "Erreur lors de la décompression", 500
+        print(f"Erreur: {e}")
+        return f"Erreur: {str(e)}", 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
