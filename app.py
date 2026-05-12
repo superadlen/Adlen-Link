@@ -13,7 +13,7 @@ BASE_URL = "https://api.subdl.com/api/v1"
 # Le manifeste indique à Stremio ce que fait l'addon
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -74,14 +74,14 @@ def get_subtitles(type, extra_path):
                     download_url = f"https://dl.subdl.com{sub['url']}"
 
                 if download_url:
-                    # Utiliser exactement le "name" de l'API SubDL comme nom affiché
-                    file_name = sub.get("name", "Sous-titre arabe")
+                    # Récupérer le nom du fichier depuis l'API SubDL
+                    file_name = sub.get("name", "")
                     
                     subtitle_entry = {
-                        "id": f"subdl_{sub.get('sd_id', '')}",
+                        "id": file_name,  # Utiliser le nom du fichier comme ID
                         "url": download_url,
                         "lang": "ara",
-                        "name": file_name  # Affiche exactement le name de SubDL
+                        "name": file_name  # LE NOM QUI S'AFFICHE DANS STREMIO
                     }
                     
                     subtitles_stremio.append(subtitle_entry)
