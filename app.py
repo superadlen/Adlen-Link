@@ -13,9 +13,9 @@ BASE_URL = "https://api.subdl.com/api/v1"
 # Le manifeste indique à Stremio ce que fait l'addon
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "name": "DZ-Arabic",
-    "description": "Arabic Subtitles By Superadlen - Dz Devloper",
+    "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
     "types": ["movie", "series"],
     "catalogs": [],
@@ -28,7 +28,7 @@ MANIFEST = {
 @app.route('/')
 def root():
     """Route racine, simple confirmation que l'addon tourne."""
-    return "Addon Sous-titres Arabes OK ! By Superadlen 💯"
+    return "Addon Sous-titres Arabes OK ! By Superadlen 💯تمتع يا عربي"
 
 @app.route('/favicon.ico')
 def favicon():
@@ -74,14 +74,14 @@ def get_subtitles(type, extra_path):
                     download_url = f"https://dl.subdl.com{sub['url']}"
 
                 if download_url:
-                    # Récupérer le nom du fichier depuis l'API SubDL
                     file_name = sub.get("name", "")
                     
+                    # Au lieu de donner le lien zip, on donne un lien vers notre serveur qui va dézipper
                     subtitle_entry = {
-                        "id": file_name,  # Utiliser le nom du fichier comme ID
-                        "url": download_url,
+                        "id": file_name,
+                        "url": f"https://dz-sub-arabic.onrender.com/unzip?url={download_url}",
                         "lang": "ara",
-                        "name": file_name  # LE NOM QUI S'AFFICHE DANS STREMIO
+                        "name": file_name
                     }
                     
                     subtitles_stremio.append(subtitle_entry)
@@ -91,6 +91,50 @@ def get_subtitles(type, extra_path):
     except Exception as e:
         print(f"Erreur: {e}")
         return jsonify({"subtitles": []})
+
+@app.route('/unzip')
+def unzip_subtitle():
+    """
+    Télécharge le fichier zip depuis SubDL, le décompresse, 
+    et renvoie le premier fichier .srt ou .vtt trouvé
+    """
+    try:
+        zip_url = request.args.get('url')
+        if not zip_url:
+            return "URL manquante", 400
+        
+        # Télécharger le fichier zip
+        response = requests.get(zip_url, timeout=15)
+        if response.status_code != 200:
+            return "Fichier non trouvé", 404
+        
+        # Décompresser en mémoire
+        with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+            # Chercher un fichier .srt ou .vtt
+            for file_name in z.namelist():
+                if file_name.lower().endswith(('.srt', '.vtt')):
+                    # Lire le contenu du fichier
+                    subtitle_content = z.read(file_name)
+                    
+                    # Déterminer le type MIME
+                    if file_name.lower().endswith('.srt'):
+                        mimetype = 'text/plain'
+                    else:
+                        mimetype = 'text/vtt'
+                    
+                    # Envoyer le fichier directement
+                    return send_file(
+                        io.BytesIO(subtitle_content),
+                        mimetype=mimetype,
+                        as_attachment=False,
+                        download_name=file_name
+                    )
+        
+        return "Aucun fichier .srt ou .vtt trouvé dans le zip", 404
+        
+    except Exception as e:
+        print(f"Erreur décompression: {e}")
+        return "Erreur lors de la décompression", 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
