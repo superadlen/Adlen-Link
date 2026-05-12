@@ -13,9 +13,10 @@ BASE_URL = "https://api.subdl.com/api/v1"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.0",
-    "name": "Sous-titres Arabes (Adlen)",
-    "description": "Fournisseur de sous-titres arabes utilisant l'API SubDL",
+    "version": "1.1.8",
+    "name": "DZ-Arabic",
+    "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
+    "logo": "https://i.imgur.com/o1hZxni.png",
     "types": ["movie", "series"],
     "catalogs": [],
     "resources": ["subtitles"],
@@ -24,7 +25,7 @@ MANIFEST = {
 
 @app.route('/')
 def root():
-    return "Addon Sous-titres Arabes OK !"
+    return "Addon Sous-titres Arabes OK ! By Superadlen 💯تمتع يا عربي"
 
 @app.route('/favicon.ico')
 def favicon():
