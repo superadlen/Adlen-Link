@@ -15,7 +15,7 @@ BASE_URL = "https://api.subdl.com/api/v1"
 # Le manifeste indique à Stremio ce que fait l'addon
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
