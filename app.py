@@ -13,10 +13,10 @@ BASE_URL = "https://api.subdl.com/api/v1"
 # Le manifeste indique à Stremio ce que fait l'addon
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper",
-    "logo": "https://i.pinimg.com/736x/83/65/c1/8365c1ce87b74cff2810b3826efc6db5.jpg",
+    "logo": "https://i.pinimg.com/736x/01/db/9a/01db9a2272b7105e93e55fc12f3e6389.jpg",
     "types": ["movie", "series"],
     "catalogs": [],
     "resources": ["subtitles"],
@@ -32,34 +32,22 @@ def root():
 
 @app.route('/favicon.ico')
 def favicon():
-    """Évite l'erreur 404 pour favicon.ico"""
     return "", 204
 
 @app.route('/manifest.json')
 def get_manifest():
-    """Stremio appelle cette route pour connaître les capacités de l'addon."""
     return jsonify(MANIFEST)
 
-# Route modifiée pour accepter les paramètres supplémentaires de Stremio
 @app.route('/subtitles/<type>/<path:extra_path>')
 def get_subtitles(type, extra_path):
-    """
-    Route principale appelée par Stremio pour récupérer les sous-titres.
-    - type : 'movie' ou 'series'
-    - extra_path : l'ID et les paramètres supplémentaires (ex: tt16431404/filename=-1%3F&videoSize=...)
-    """
     try:
-        # Extraire l'ID de l'URL (première partie avant le "/")
         parts = extra_path.split('/')
         id = parts[0]
         
-        print(f"[DEBUG] Type: {type}, ID: {id}")
-        
-        # Étape 1 : Préparer la requête pour l'API SubDL
         is_imdb = id.startswith('tt')
         params = {
             "api_key": API_KEY,
-            "languages": "AR",  # On ne demande QUE l'arabe
+            "languages": "AR",
             "type": "movie" if type == 'movie' else "tv"
         }
         if is_imdb:
@@ -67,58 +55,43 @@ def get_subtitles(type, extra_path):
         else:
             params["tmdb_id"] = id
 
-        print(f"[DEBUG] Paramètres API: {params}")
-
-        # Étape 2 : Appeler l'API SubDL
         response = requests.get(f"{BASE_URL}/subtitles", params=params, timeout=10)
-        print(f"[DEBUG] Statut API: {response.status_code}")
         
         if response.status_code != 200:
             return jsonify({"subtitles": []})
             
         data = response.json()
 
-        # Étape 3 : Vérifier que la réponse est valide et contient des sous-titres
         if not data.get("status") or "subtitles" not in data:
-            print("[DEBUG] Pas de sous-titres trouvés")
             return jsonify({"subtitles": []})
 
-        # Étape 4 : Formater les sous-titres pour Stremio
         subtitles_stremio = []
         for sub in data["subtitles"]:
             lang = sub.get("lang", "").lower()
-            # Double vérification que la langue est bien l'arabe
             if lang == "arabic":
-                # Récupérer le lien de téléchargement direct
                 download_url = sub.get("download_link")
                 if not download_url and sub.get("url"):
                     download_url = f"https://dl.subdl.com{sub['url']}"
 
                 if download_url:
-                    # Construire l'objet sous-titre au format attendu par Stremio
+                    # Utiliser exactement le "name" de l'API SubDL comme nom affiché
+                    file_name = sub.get("name", "Sous-titre arabe")
+                    
                     subtitle_entry = {
                         "id": f"subdl_{sub.get('sd_id', '')}",
                         "url": download_url,
-                        "lang": "ara"  # 'ara' est le code ISO 639-2 pour l'arabe
+                        "lang": "ara",
+                        "name": file_name  # Affiche exactement le name de SubDL
                     }
-                    # Ajouter un nom descriptif si disponible
-                    if sub.get("release_name"):
-                        subtitle_entry["name"] = sub["release_name"]
+                    
                     subtitles_stremio.append(subtitle_entry)
 
-        print(f"[DEBUG] Sous-titres arabes trouvés: {len(subtitles_stremio)}")
-        
-        # Étape 5 : Renvoyer la liste formatée à Stremio
         return jsonify({"subtitles": subtitles_stremio})
 
-    except requests.exceptions.RequestException as e:
-        print(f"[ERREUR] API SubDL: {e}")
-        return jsonify({"subtitles": []})
     except Exception as e:
-        print(f"[ERREUR] Inattendue: {e}")
+        print(f"Erreur: {e}")
         return jsonify({"subtitles": []})
 
-# --- DÉMARRAGE DU SERVEUR ---
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port)
