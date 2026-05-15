@@ -21,6 +21,10 @@ MANIFEST = {
     "catalogs": [],
     "resources": ["subtitles"],
     "idPrefixes": ["tt", "tmdb"]
+    "stremioAddonsConfig": {
+        "issuer": "https://stremio-addons.net",
+        "signature": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..EIQh4ec7V5HYJ6okcbYLeQ.9RbqBhm-uB_QMS3HZkbWvfhyaIXTldkO0NPWxtQ3Ri4QI3GptJMeoM2j8SofX4kIqF23xlBb6ZsfshAuuzkoBipHnYJy3m2O1TxEsJzTPmjDtkjvdkNMUiUDZMOJWcv0.4ecV2XmLO8uCXdx6QpkDOg"
+    }
 }
 
 @app.route('/')
