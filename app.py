@@ -20,7 +20,7 @@ MANIFEST = {
     "types": ["movie", "series"],
     "catalogs": [],
     "resources": ["subtitles"],
-    "idPrefixes": ["tt", "tmdb"]
+    "idPrefixes": ["tt", "tmdb"],
     "stremioAddonsConfig": {
         "issuer": "https://stremio-addons.net",
         "signature": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..EIQh4ec7V5HYJ6okcbYLeQ.9RbqBhm-uB_QMS3HZkbWvfhyaIXTldkO0NPWxtQ3Ri4QI3GptJMeoM2j8SofX4kIqF23xlBb6ZsfshAuuzkoBipHnYJy3m2O1TxEsJzTPmjDtkjvdkNMUiUDZMOJWcv0.4ecV2XmLO8uCXdx6QpkDOg"
@@ -77,7 +77,7 @@ def get_subtitles(type, extra_path):
                 if download_url:
                     file_name = sub.get("name", "")
                     
-                    # Au lieu de donner le lien zip, on donne un lien vers notre serveur qui va dézipper
+                    # Lien vers le serveur pour le dézippage en temps réel
                     subtitle_entry = {
                         "id": file_name,
                         "url": f"https://dz-sub-arabic.onrender.com/unzip?url={download_url}",
