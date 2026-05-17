@@ -73,7 +73,9 @@ def get_subtitles(type, extra_path):
 
         for sub in data["subtitles"]:
             lang = sub.get("lang", "").lower()
-            if lang == "arabic":
+            
+            # Accepte 'arabic', 'ar' ou si le filtre API a déjà bien fait son travail
+            if lang == "arabic" or lang == "ar" or lang == "":
                 download_url = sub.get("download_link")
                 if not download_url and sub.get("url"):
                     download_url = f"https://dl.subdl.com{sub['url']}"
@@ -81,13 +83,15 @@ def get_subtitles(type, extra_path):
                 if download_url:
                     file_name = sub.get("name", "")
                     
-                    # Utilisation de l'URL dynamique Hugging Face au lieu de Render
+                    # Utilisation de l'URL dynamique Hugging Face
                     subtitle_entry = {
                         "id": file_name,
                         "url": f"{current_host}/unzip?url={download_url}",
-                        "lang": "ara",
+                        "lang": "ara",  # Stremio a besoin de "ara" en 3 lettres pour afficher l'icône arabe
                         "name": file_name
                     }
+                    
+                    subtitles_stremio.append(subtitle_entry)
                     
                     subtitles_stremio.append(subtitle_entry)
 
