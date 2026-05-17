@@ -16,7 +16,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -45,20 +45,17 @@ def get_manifest():
 @app.route('/subtitles/<type>/<path:extra_path>')
 def get_subtitles(type, extra_path):
     try:
-        # Nettoyage de l'extension .json envoyée par Stremio
         clean_path = extra_path.replace('.json', '')
         parts = clean_path.split('/')
         raw_id = parts[0]
         
         params = {
             "api_key": API_KEY,
-            "languages": "AR",  # La doc accepte "AR" ou "ar"
+            "languages": "ar",  # Test en minuscules comme l'exemple JS de la doc
             "type": "movie" if type == "movie" else "tv"
         }
 
-        # Gestion intelligente des Séries et des Films
         if ':' in raw_id:
-            # Format Stremio Série: tt1234567:saison:episode
             id_parts = raw_id.split(':')
             main_id = id_parts[0]
             params["season_number"] = id_parts[1]
@@ -66,46 +63,44 @@ def get_subtitles(type, extra_path):
         else:
             main_id = raw_id
 
-        # Attribution de l'identifiant selon le préfixe
         if main_id.startswith('tt'):
-            params["imdb_id"] = main_id
+            # Double sécurité : SubDL rejette souvent le 'tt' sur l'endpoint global v1
+            params["imdb_id"] = main_id.replace('tt', '')
         else:
             params["tmdb_id"] = main_id
 
-        # Appel de l'unique endpoint GET de l'API SubDL
-        response = requests.get(BASE_URL, params=params, timeout=10)
+        # Camouflage : On fait croire à SubDL que la requête vient d'un ordinateur sous Windows avec Chrome
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+
+        response = requests.get(BASE_URL, params=params, headers=headers, timeout=10)
         
         if response.status_code != 200:
             return jsonify({"subtitles": []})
             
         data = response.json()
 
-        # Vérification du statut 'true' de l'API
         if not data.get("status") or "subtitles" not in data:
             return jsonify({"subtitles": []})
 
         subtitles_stremio = []
 
         for sub in data["subtitles"]:
-            # Récupération de la valeur servant à construire l'URL de téléchargement
             sub_url_path = sub.get("url")
             
             if sub_url_path:
-                # CONFORME À LA DOC : Si le chemin ne commence pas par /subtitle/, on le corrige
                 if not sub_url_path.startswith('/subtitle/'):
-                    # Si c'est juste un ID ou s'il manque le slash d'origine
                     sub_url_path = f"/subtitle/{sub_url_path.lstrip('/')}"
                 
-                # Construction du lien de téléchargement final vers dl.subdl.com
                 download_url = f"https://dl.subdl.com{sub_url_path}"
-                
-                # Détermination du nom à afficher dans Stremio
                 file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
                 
                 subtitle_entry = {
                     "id": f"subdl_{sub.get('id', 'file')}",
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
-                    "lang": "ara",  # Code ISO requis par Stremio
+                    "lang": "ara",
                     "name": f"🇸🇦 {file_name[:50]}"
                 }
                 subtitles_stremio.append(subtitle_entry)
@@ -123,7 +118,10 @@ def unzip_subtitle():
         if not zip_url:
             return "URL manquante", 400
         
-        response = requests.get(zip_url, timeout=15)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(zip_url, headers=headers, timeout=15)
         if response.status_code != 200:
             return "Fichier non trouvé", 404
         
