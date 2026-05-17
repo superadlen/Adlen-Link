@@ -11,13 +11,12 @@ CORS(app)
 API_KEY = "xF1Vsj1tXWPxG7PP59vS1sypy_N_ETxZ"
 BASE_URL = "https://api.subdl.com/api/v1"
 
-# ⚠️ REMPLACE CETTE URL PAR TON ADRESSE DIRECTE HUGGING FACE SANS LE '/' À LA FIN !
-# Exemple: "https://superadlen-dz-arabic-subtitles.hf.space"
+# Mets bien l'URL de ton Space sans le '/' à la fin
 HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.3.1",
+    "version": "1.4.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -46,57 +45,67 @@ def get_manifest():
 @app.route('/subtitles/<type>/<path:extra_path>')
 def get_subtitles(type, extra_path):
     try:
-        parts = extra_path.split('/')
-        id = parts[0]
+        # Nettoyer l'extension .json envoyée par Stremio
+        clean_path = extra_path.replace('.json', '')
+        parts = clean_path.split('/')
+        raw_id = parts
         
-        is_imdb = id.startswith('tt')
+        # Si c'est une série, on extrait l'ID principal (ex: tt1234567:1:1 -> tt1234567)
+        if ':' in raw_id:
+            main_id = raw_id.split(':')
+        else:
+            main_id = raw_id
+            
+        is_imdb = main_id.startswith('tt')
+        
         params = {
             "api_key": API_KEY,
-            "languages": "AR",
-            "type": "movie" if type == 'movie' else "tv"
+            "languages": "AR"
         }
+        
         if is_imdb:
-            params["imdb_id"] = id
+            # SubDL exige l'ID IMDB SANS le "tt"
+            params["imdb_id"] = main_id.replace('tt', '')
         else:
-            params["tmdb_id"] = id
+            params["tmdb_id"] = main_id
 
-        response = requests.get(f"{BASE_URL}/subtitles", params=params, timeout=10)
+        # FIX : Sélection de la bonne route API SubDL (subtitles/movie ou subtitles/tv)
+        endpoint = "movie" if type == "movie" else "tv"
+        subdl_url = f"{BASE_URL}/subtitles/{endpoint}"
+
+        response = requests.get(subdl_url, params=params, timeout=10)
         
         if response.status_code != 200:
             return jsonify({"subtitles": []})
             
         data = response.json()
-
-        if not data.get("status") or "subtitles" not in data:
+        raw_subs = data.get("subtitles", [])
+        
+        if not raw_subs:
             return jsonify({"subtitles": []})
 
         subtitles_stremio = []
 
-        for sub in data["subtitles"]:
-            lang = sub.get("lang", "").lower()
-            
-            if lang == "arabic" or lang == "ar" or lang == "":
-                download_url = sub.get("download_link")
-                if not download_url and sub.get("url"):
-                    download_url = f"https://dl.subdl.com{sub['url']}"
+        for sub in raw_subs:
+            download_url = sub.get("download_link")
+            if not download_url and sub.get("url"):
+                download_url = f"https://dl.subdl.com{sub['url']}"
 
-                if download_url:
-                    file_name = sub.get("name", "")
-                    
-                    # Ici on utilise l'URL fixe de Hugging Face au lieu du localhost interne
-                    subtitle_entry = {
-                        "id": file_name,
-                        "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
-                        "lang": "ara",
-                        "name": file_name
-                    }
-                    
-                    subtitles_stremio.append(subtitle_entry)
+            if download_url:
+                file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
+                
+                subtitle_entry = {
+                    "id": f"subdl_{sub.get('id', 'file')}",
+                    "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
+                    "lang": "ara",
+                    "name": f"🇸🇦 {file_name[:50]}"
+                }
+                subtitles_stremio.append(subtitle_entry)
 
         return jsonify({"subtitles": subtitles_stremio})
 
     except Exception as e:
-        print(f"Erreur: {e}")
+        print(f"Erreur DZ-Arabic Subtitles: {e}")
         return jsonify({"subtitles": []})
 
 @app.route('/unzip')
@@ -112,6 +121,9 @@ def unzip_subtitle():
         
         with zipfile.ZipFile(io.BytesIO(response.content)) as z:
             for file_name in z.namelist():
+                if "__MACOSX" in file_name:
+                    continue
+                    
                 if file_name.lower().endswith(('.srt', '.vtt')):
                     subtitle_content = z.read(file_name)
                     
