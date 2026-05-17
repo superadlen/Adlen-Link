@@ -13,7 +13,7 @@ BASE_URL = "https://api.subdl.com/api/v1"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -29,7 +29,7 @@ MANIFEST = {
 
 @app.route('/')
 def root():
-    return "Addon Sous-titres Arabes OK ! By Superadlen 💯تمتع يا عربي"
+    return jsonify(MANIFEST)  # Renvoyer le manifest sur la racine pour le ping de Hugging Face
 
 @app.route('/favicon.ico')
 def favicon():
@@ -67,6 +67,10 @@ def get_subtitles(type, extra_path):
             return jsonify({"subtitles": []})
 
         subtitles_stremio = []
+        
+        # Détection automatique de l'URL du serveur actuel (Hugging Face)
+        current_host = request.host_url.rstrip('/')
+
         for sub in data["subtitles"]:
             lang = sub.get("lang", "").lower()
             if lang == "arabic":
@@ -77,10 +81,10 @@ def get_subtitles(type, extra_path):
                 if download_url:
                     file_name = sub.get("name", "")
                     
-                    # Lien vers le serveur pour le dézippage en temps réel
+                    # Utilisation de l'URL dynamique Hugging Face au lieu de Render
                     subtitle_entry = {
                         "id": file_name,
-                        "url": f"https://dz-sub-arabic.onrender.com/unzip?url={download_url}",
+                        "url": f"{current_host}/unzip?url={download_url}",
                         "lang": "ara",
                         "name": file_name
                     }
@@ -95,35 +99,25 @@ def get_subtitles(type, extra_path):
 
 @app.route('/unzip')
 def unzip_subtitle():
-    """
-    Télécharge le fichier zip depuis SubDL, le décompresse, 
-    et renvoie le premier fichier .srt ou .vtt trouvé
-    """
     try:
         zip_url = request.args.get('url')
         if not zip_url:
             return "URL manquante", 400
         
-        # Télécharger le fichier zip
         response = requests.get(zip_url, timeout=15)
         if response.status_code != 200:
             return "Fichier non trouvé", 404
         
-        # Décompresser en mémoire
         with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-            # Chercher un fichier .srt ou .vtt
             for file_name in z.namelist():
                 if file_name.lower().endswith(('.srt', '.vtt')):
-                    # Lire le contenu du fichier
                     subtitle_content = z.read(file_name)
                     
-                    # Déterminer le type MIME
                     if file_name.lower().endswith('.srt'):
-                        mimetype = 'text/plain'
+                        mimetype = 'text/plain; charset=utf-8'
                     else:
-                        mimetype = 'text/vtt'
+                        mimetype = 'text/vtt; charset=utf-8'
                     
-                    # Envoyer le fichier directement
                     return send_file(
                         io.BytesIO(subtitle_content),
                         mimetype=mimetype,
@@ -138,5 +132,6 @@ def unzip_subtitle():
         return "Erreur lors de la décompression", 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    # Force le port 7860 pour Hugging Face
+    port = int(os.environ.get('PORT', 7860))
     app.run(host='0.0.0.0', port=port)
