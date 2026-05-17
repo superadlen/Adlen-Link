@@ -9,14 +9,14 @@ app = Flask(__name__)
 CORS(app)
 
 API_KEY = "xF1Vsj1tXWPxG7PP59vS1sypy_N_ETxZ"
-BASE_URL = "https://api.subdl.com/api/v1"
+BASE_URL = "https://api.subdl.com/api/v1/subtitles"
 
-# URL publique de ton Space Hugging Face
+# URL publique absolue de ton Space Hugging Face
 HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.5.0",
+    "version": "1.7.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -45,58 +45,67 @@ def get_manifest():
 @app.route('/subtitles/<type>/<path:extra_path>')
 def get_subtitles(type, extra_path):
     try:
-        # Nettoyage de l'extension .json de Stremio
+        # Nettoyage de l'extension .json envoyée par Stremio
         clean_path = extra_path.replace('.json', '')
         parts = clean_path.split('/')
         raw_id = parts[0]
         
-        # Séparation pour les séries (ex: tt1234567:1:1 -> tt1234567)
-        if ':' in raw_id:
-            main_id = raw_id.split(':')[0]
-        else:
-            main_id = raw_id
-            
-        is_imdb = main_id.startswith('tt')
-        
         params = {
             "api_key": API_KEY,
-            "languages": "AR"
+            "languages": "AR",  # La doc accepte "AR" ou "ar"
+            "type": "movie" if type == "movie" else "tv"
         }
-        
-        # On teste les deux formats d'ID pour maximiser les chances de SubDL
-        if is_imdb:
-            params["imdb_id"] = main_id  # Garde "tt" si l'ancienne API globale le gérait
+
+        # Gestion intelligente des Séries et des Films
+        if ':' in raw_id:
+            # Format Stremio Série: tt1234567:saison:episode
+            id_parts = raw_id.split(':')
+            main_id = id_parts[0]
+            params["season_number"] = id_parts[1]
+            params["episode_number"] = id_parts[2]
+        else:
+            main_id = raw_id
+
+        # Attribution de l'identifiant selon le préfixe
+        if main_id.startswith('tt'):
+            params["imdb_id"] = main_id
         else:
             params["tmdb_id"] = main_id
 
-        # Retour à l'URL globale d'origine qui marchait sur Render
-        subdl_url = f"{BASE_URL}/subtitles"
-
-        response = requests.get(subdl_url, params=params, timeout=10)
+        # Appel de l'unique endpoint GET de l'API SubDL
+        response = requests.get(BASE_URL, params=params, timeout=10)
         
         if response.status_code != 200:
             return jsonify({"subtitles": []})
             
         data = response.json()
-        raw_subs = data.get("subtitles", [])
-        
-        if not raw_subs:
+
+        # Vérification du statut 'true' de l'API
+        if not data.get("status") or "subtitles" not in data:
             return jsonify({"subtitles": []})
 
         subtitles_stremio = []
 
-        for sub in raw_subs:
-            download_url = sub.get("download_link")
-            if not download_url and sub.get("url"):
-                download_url = f"https://dl.subdl.com{sub['url']}"
-
-            if download_url:
+        for sub in data["subtitles"]:
+            # Récupération de la valeur servant à construire l'URL de téléchargement
+            sub_url_path = sub.get("url")
+            
+            if sub_url_path:
+                # CONFORME À LA DOC : Si le chemin ne commence pas par /subtitle/, on le corrige
+                if not sub_url_path.startswith('/subtitle/'):
+                    # Si c'est juste un ID ou s'il manque le slash d'origine
+                    sub_url_path = f"/subtitle/{sub_url_path.lstrip('/')}"
+                
+                # Construction du lien de téléchargement final vers dl.subdl.com
+                download_url = f"https://dl.subdl.com{sub_url_path}"
+                
+                # Détermination du nom à afficher dans Stremio
                 file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
                 
                 subtitle_entry = {
                     "id": f"subdl_{sub.get('id', 'file')}",
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
-                    "lang": "ara",
+                    "lang": "ara",  # Code ISO requis par Stremio
                     "name": f"🇸🇦 {file_name[:50]}"
                 }
                 subtitles_stremio.append(subtitle_entry)
@@ -104,7 +113,7 @@ def get_subtitles(type, extra_path):
         return jsonify({"subtitles": subtitles_stremio})
 
     except Exception as e:
-        print(f"Erreur: {e}")
+        print(f"Erreur DZ-Arabic Subtitles: {e}")
         return jsonify({"subtitles": []})
 
 @app.route('/unzip')
