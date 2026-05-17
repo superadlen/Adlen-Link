@@ -13,7 +13,7 @@ BASE_URL = "https://api.subdl.com/api/v1"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.1.9",
+    "version": "1.2.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
