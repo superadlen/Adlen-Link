@@ -11,6 +11,7 @@ CORS(app)
 # 🔑 TES CLÉS API SUBDL
 API_KEYS = [
     "subdl_c2z3DxYbpqxrwMi9tqoOOvqxpKr7S9ckybH6gt5Gi1s",
+    "subdl_lTE8o46aAb7qssQj-kK-QwALDoBRu0_SXd6Rl8MxSrw",
     "subdl_hEkakvhQEPSxRkJYCpVALev5pH1oDpz2Lbuhrng15gQ",
     "subdl_UIB1ErnZQxp_fZ925ywG4jBQiZpckH6NFN5BAU2vK2g",
     "subdl_KPfvWm1nPXSjz4gkA_ATA2eYAIWasaMeBTxnUy-vWOg",
@@ -23,7 +24,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.5.0",
+    "version": "2.5.1",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
