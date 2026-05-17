@@ -17,4 +17,4 @@ jobs:
       - name: Push to HF
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://Superadlen:$HF_TOKEN@huggingface.co/spaces/Superadlen/DZ-Arabic
+        run: git push --force https://Superadlen:$HF_TOKEN@huggingface.co/spaces/Superadlen/dz-arabic-subtitles main
