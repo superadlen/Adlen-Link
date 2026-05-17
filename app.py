@@ -8,14 +8,22 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# CONSEIL : Change cette clé si tu en as généré une nouvelle sur SubDL
-API_KEY = "xF1Vsj1tXWPxG7PP59vS1sypy_N_ETxZ"
+# 🔑 AJOUTE TES DIFFÉRENTES CLÉS API ICI (SÉPARÉES PAR DES VIRGULES)
+API_KEYS = [
+    "subdl_c2z3DxYbpqxrwMi9tqoOOvqxpKr7S9ckybH6gt5Gi1s",
+    "subdl_hEkakvhQEPSxRkJYCpVALev5pH1oDpz2Lbuhrng15gQ",# Ta clé actuelle (index 0)
+    "subdl_UIB1ErnZQxp_fZ925ywG4jBQiZpckH6NFN5BAU2vK2g",            # Remplace par ta 2ème clé
+    "subdl_KPfvWm1nPXSjz4gkA_ATA2eYAIWasaMeBTxnUy-vWOg",            # Remplace par ta 3ème clé
+    "subdl_k0f0U48XZMJN7r2E5IBEykvSoDbZG9Eu_g8ux2eDswg",            # Remplace par ta 4ème clé
+    "subdl_fK8Mic862fwE5PJQwYDbx1859FewdtihJyvVtRVgVbo"             # Remplace par ta 5ème clé
+]
+
 BASE_URL = "https://api.subdl.com/api/v1/subtitles"
 HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -40,8 +48,8 @@ def get_subtitles(type, extra_path):
         parts = clean_path.split('/')
         raw_id = parts[0]
         
-        params = {
-            "api_key": API_KEY,
+        # Préparation des paramètres de base (sans la clé pour le moment)
+        base_params = {
             "languages": "ar",
             "type": "movie" if type == "movie" else "tv"
         }
@@ -49,33 +57,58 @@ def get_subtitles(type, extra_path):
         if ':' in raw_id:
             id_parts = raw_id.split(':')
             main_id = id_parts[0]
-            params["season_number"] = id_parts[1]
-            params["episode_number"] = id_parts[2]
+            base_params["season_number"] = id_parts[1]
+            base_params["episode_number"] = id_parts[2]
         else:
             main_id = raw_id
 
-        # La doc montre que l'API accepte le 'tt', on le laisse par défaut
-        params["imdb_id"] = main_id
+        base_params["imdb_id"] = main_id
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Accept": "application/json"
         }
 
-        response = requests.get(BASE_URL, params=params, headers=headers, timeout=10)
+        response = None
+        all_limit_reached = True
         
-        # Si la limite est atteinte (429), on affiche un message d'avertissement dans Stremio
-        if response.status_code == 429:
+        # 🔄 BOUCLE SUR LES CLÉS API : On les teste une par une
+        for current_key in API_KEYS:
+            # On fait une copie des paramètres et on injecte la clé en cours
+            query_params = base_params.copy()
+            query_params["api_key"] = current_key
+
+            print(f"[DZ-Addon] Tentative avec la clé : {current_key[:8]}...")
+            
+            try:
+                response = requests.get(BASE_URL, params=query_params, headers=headers, timeout=8)
+                
+                # Si la clé renvoie 429, on ignore et on passe directement à la clé suivante dans la boucle
+                if response.status_code == 429:
+                    print(f"[DZ-Addon] Clé {current_key[:8]}... épuisée (429). Passage à la suivante.")
+                    continue
+                
+                # Si on a un code 200 (ou autre chose que 429), on a trouvé une clé valide ! On arrête la boucle.
+                all_limit_reached = False
+                break
+                
+            except Exception as e:
+                print(f"[DZ-Addon] Erreur de connexion avec la clé {current_key[:8]}... : {e}")
+                continue
+
+        # 🚨 Si la boucle s'est finie et que toutes les clés ont renvoyé 429
+        if all_limit_reached:
             return jsonify({
                 "subtitles": [{
-                    "id": "subdl_limit",
+                    "id": "subdl_limit_all",
                     "url": "https://localhost/limit.srt",
                     "lang": "ara",
-                    "name": "⚠️ SubDL API: Daily Limit Reached (Quota épuisé)"
+                    "name": "⚠️ DZ-Arabic: Toutes les clés API sont épuisées pour aujourd'hui !"
                 }]
             })
 
-        if response.status_code != 200:
+        # Sécurité si aucune réponse n'a pu être obtenue du tout
+        if response is None or response.status_code != 200:
             return jsonify({"subtitles": []})
             
         data = response.json()
@@ -104,7 +137,7 @@ def get_subtitles(type, extra_path):
         return jsonify({"subtitles": subtitles_stremio})
 
     except Exception as e:
-        print(f"Erreur: {e}")
+        print(f"Erreur globale addon: {e}")
         return jsonify({"subtitles": []})
 
 @app.route('/unzip')
