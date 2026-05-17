@@ -8,7 +8,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# 🔑 TES CLÉS API SUBDL (Parfaitement configurées avec rotation)
+# 🔑 TES CLÉS API SUBDL (Avec système de rotation)
 API_KEYS = [
     "subdl_c2z3DxYbpqxrwMi9tqoOOvqxpKr7S9ckybH6gt5Gi1s",
     "subdl_lTE8o46aAb7qssQj-kK-QwALDoBRu0_SXd6Rl8MxSrw",
@@ -24,7 +24,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.2.2",
+    "version": "2.3.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -49,7 +49,7 @@ def get_subtitles(type, extra_path):
         parts = clean_path.split('/')
         raw_id = parts[0]
         
-        # Préparation des paramètres de base (sans la clé pour le moment)
+        # Préparation des paramètres de base
         base_params = {
             "languages": "ar",
             "type": "movie" if type == "movie" else "tv"
@@ -73,7 +73,7 @@ def get_subtitles(type, extra_path):
         response = None
         all_limit_reached = True
         
-        # 🔄 BOUCLE SUR LES CLÉS API : On les teste une par une
+        # 🔄 Boucle de test des clés API une par une
         for current_key in API_KEYS:
             query_params = base_params.copy()
             query_params["api_key"] = current_key
@@ -83,12 +83,10 @@ def get_subtitles(type, extra_path):
             try:
                 response = requests.get(BASE_URL, params=query_params, headers=headers, timeout=8)
                 
-                # Si la clé renvoie 429, on passe à la suivante
                 if response.status_code == 429:
                     print(f"[DZ-Addon] Clé {current_key[:12]}... épuisée (429).")
                     continue
                 
-                # Clé valide trouvée ! On arrête la boucle
                 all_limit_reached = False
                 break
                 
@@ -96,7 +94,6 @@ def get_subtitles(type, extra_path):
                 print(f"[DZ-Addon] Erreur avec la clé {current_key[:12]}... : {e}")
                 continue
 
-        # 🚨 Si toutes les clés ont renvoyé 429
         if all_limit_reached:
             return jsonify({
                 "subtitles": [{
@@ -107,7 +104,6 @@ def get_subtitles(type, extra_path):
                 }]
             })
 
-        # Sécurité si l'API est indisponible
         if response is None or response.status_code != 200:
             return jsonify({"subtitles": []})
             
@@ -118,6 +114,11 @@ def get_subtitles(type, extra_path):
 
         subtitles_stremio = []
 
+        # Récupération du titre général du film fourni par l'API en cas de secours
+        film_global_name = ""
+        if data.get("results") and len(data["results"]) > 0:
+            film_global_name = data["results"][0].get("name", "")
+
         for sub in data["subtitles"]:
             sub_url_path = sub.get("url")
             if sub_url_path:
@@ -126,17 +127,23 @@ def get_subtitles(type, extra_path):
                 
                 download_url = f"https://dl.subdl.com{sub_url_path}"
                 
-                # 🛠️ ON PREND EN PRIORITÉ LE NOM DE LA RELEASE (EX: Interstellar.2014.Bluray...)
-                # SI VIDE, ON PREND LE NOM DU FILM, SINON UN TEXTE PAR DÉFAUT
-                file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
+                # 🛠️ Nettoyage et forçage du nom de la release pour éviter les "12345.zip"
+                file_name = sub.get("release_name") or sub.get("name")
+                
+                if not file_name or ".zip" in file_name.lower() or "subtitle" in file_name.lower():
+                    if film_global_name:
+                        sub_id_short = sub.get('id') or "pack"
+                        file_name = f"{film_global_name} (Version {sub_id_short})"
+                    else:
+                        file_name = sub_url_path.split('/')[-1].replace('.zip', '')
                 
                 unique_sub_id = sub.get('id') or sub.get('release_id') or hash(download_url)
                 
                 subtitles_stremio.append({
-                    "id": f"{raw_id}_subdl_{unique_sub_id}", # Gardé unique pour le moteur de Stremio
+                    "id": f"{raw_id}_subdl_{unique_sub_id}",
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
                     "lang": "ara",
-                    "name": f"🇸🇦 {file_name}" # <-- C'est ce texte exact qui s'affiche à l'écran dans Stremio
+                    "name": f"🇸🇦 {file_name}"
                 })
 
         return jsonify({"subtitles": subtitles_stremio})
