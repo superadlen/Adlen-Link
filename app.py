@@ -8,14 +8,14 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# 🔑 AJOUTE TES DIFFÉRENTES CLÉS API ICI (SÉPARÉES PAR DES VIRGULES)
+# 🔑 TES CLÉS API SUBDL (Parfaitement configurées avec rotation)
 API_KEYS = [
     "subdl_c2z3DxYbpqxrwMi9tqoOOvqxpKr7S9ckybH6gt5Gi1s",
-    "subdl_hEkakvhQEPSxRkJYCpVALev5pH1oDpz2Lbuhrng15gQ",# Ta clé actuelle (index 0)
-    "subdl_UIB1ErnZQxp_fZ925ywG4jBQiZpckH6NFN5BAU2vK2g",            # Remplace par ta 2ème clé
-    "subdl_KPfvWm1nPXSjz4gkA_ATA2eYAIWasaMeBTxnUy-vWOg",            # Remplace par ta 3ème clé
-    "subdl_k0f0U48XZMJN7r2E5IBEykvSoDbZG9Eu_g8ux2eDswg",            # Remplace par ta 4ème clé
-    "subdl_fK8Mic862fwE5PJQwYDbx1859FewdtihJyvVtRVgVbo"             # Remplace par ta 5ème clé
+    "subdl_hEkakvhQEPSxRkJYCpVALev5pH1oDpz2Lbuhrng15gQ",
+    "subdl_UIB1ErnZQxp_fZ925ywG4jBQiZpckH6NFN5BAU2vK2g",
+    "subdl_KPfvWm1nPXSjz4gkA_ATA2eYAIWasaMeBTxnUy-vWOg",
+    "subdl_k0f0U48XZMJN7r2E5IBEykvSoDbZG9Eu_g8ux2eDswg",
+    "subdl_fK8Mic862fwE5PJQwYDbx1859FewdtihJyvVtRVgVbo"
 ]
 
 BASE_URL = "https://api.subdl.com/api/v1/subtitles"
@@ -23,7 +23,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -74,40 +74,39 @@ def get_subtitles(type, extra_path):
         
         # 🔄 BOUCLE SUR LES CLÉS API : On les teste une par une
         for current_key in API_KEYS:
-            # On fait une copie des paramètres et on injecte la clé en cours
             query_params = base_params.copy()
             query_params["api_key"] = current_key
 
-            print(f"[DZ-Addon] Tentative avec la clé : {current_key[:8]}...")
+            print(f"[DZ-Addon] Tentative avec la clé : {current_key[:12]}...")
             
             try:
                 response = requests.get(BASE_URL, params=query_params, headers=headers, timeout=8)
                 
-                # Si la clé renvoie 429, on ignore et on passe directement à la clé suivante dans la boucle
+                # Si la clé renvoie 429, on passe à la suivante
                 if response.status_code == 429:
-                    print(f"[DZ-Addon] Clé {current_key[:8]}... épuisée (429). Passage à la suivante.")
+                    print(f"[DZ-Addon] Clé {current_key[:12]}... épuisée (429).")
                     continue
                 
-                # Si on a un code 200 (ou autre chose que 429), on a trouvé une clé valide ! On arrête la boucle.
+                # Clé valide trouvée ! On arrête la boucle
                 all_limit_reached = False
                 break
                 
             except Exception as e:
-                print(f"[DZ-Addon] Erreur de connexion avec la clé {current_key[:8]}... : {e}")
+                print(f"[DZ-Addon] Erreur avec la clé {current_key[:12]}... : {e}")
                 continue
 
-        # 🚨 Si la boucle s'est finie et que toutes les clés ont renvoyé 429
+        # 🚨 Si toutes les clés ont renvoyé 429
         if all_limit_reached:
             return jsonify({
                 "subtitles": [{
-                    "id": "subdl_limit_all",
+                    "id": f"{raw_id}_limit_all",
                     "url": "https://localhost/limit.srt",
                     "lang": "ara",
-                    "name": "⚠️ DZ-Arabic: Toutes les clés API sont épuisées pour aujourd'hui !"
+                    "name": "⚠️ DZ-Arabic: Toutes les clés API sont épuisées !"
                 }]
             })
 
-        # Sécurité si aucune réponse n'a pu être obtenue du tout
+        # Sécurité si l'API est indisponible
         if response is None or response.status_code != 200:
             return jsonify({"subtitles": []})
             
@@ -127,8 +126,11 @@ def get_subtitles(type, extra_path):
                 download_url = f"https://dl.subdl.com{sub_url_path}"
                 file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
                 
+                # 🛠️ CORRECTION CRITIQUE POUR STREMIO : Génération d'un ID unique par sous-titre
+                unique_sub_id = sub.get('id') or sub.get('release_id') or hash(download_url)
+                
                 subtitles_stremio.append({
-                    "id": f"subdl_{sub.get('id', 'file')}",
+                    "id": f"{raw_id}_subdl_{unique_sub_id}",
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
                     "lang": "ara",
                     "name": f"🇸🇦 {file_name[:50]}"
