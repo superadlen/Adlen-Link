@@ -11,6 +11,7 @@ CORS(app)
 # 🔑 TES CLÉS API SUBDL (Parfaitement configurées avec rotation)
 API_KEYS = [
     "subdl_c2z3DxYbpqxrwMi9tqoOOvqxpKr7S9ckybH6gt5Gi1s",
+    "subdl_lTE8o46aAb7qssQj-kK-QwALDoBRu0_SXd6Rl8MxSrw",
     "subdl_hEkakvhQEPSxRkJYCpVALev5pH1oDpz2Lbuhrng15gQ",
     "subdl_UIB1ErnZQxp_fZ925ywG4jBQiZpckH6NFN5BAU2vK2g",
     "subdl_KPfvWm1nPXSjz4gkA_ATA2eYAIWasaMeBTxnUy-vWOg",
@@ -23,7 +24,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.2.0",
+    "version": "2.2.2",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -124,16 +125,18 @@ def get_subtitles(type, extra_path):
                     sub_url_path = f"/subtitle/{sub_url_path.lstrip('/')}"
                 
                 download_url = f"https://dl.subdl.com{sub_url_path}"
+                
+                # 🛠️ ON PREND EN PRIORITÉ LE NOM DE LA RELEASE (EX: Interstellar.2014.Bluray...)
+                # SI VIDE, ON PREND LE NOM DU FILM, SINON UN TEXTE PAR DÉFAUT
                 file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
                 
-                # 🛠️ CORRECTION CRITIQUE POUR STREMIO : Génération d'un ID unique par sous-titre
                 unique_sub_id = sub.get('id') or sub.get('release_id') or hash(download_url)
                 
                 subtitles_stremio.append({
-                    "id": f"{raw_id}_subdl_{unique_sub_id}",
+                    "id": f"{raw_id}_subdl_{unique_sub_id}", # Gardé unique pour le moteur de Stremio
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
                     "lang": "ara",
-                    "name": f"🇸🇦 {file_name[:50]}"
+                    "name": f"🇸🇦 {file_name}" # <-- C'est ce texte exact qui s'affiche à l'écran dans Stremio
                 })
 
         return jsonify({"subtitles": subtitles_stremio})
