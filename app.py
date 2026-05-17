@@ -11,32 +11,23 @@ CORS(app)
 API_KEY = "xF1Vsj1tXWPxG7PP59vS1sypy_N_ETxZ"
 BASE_URL = "https://api.subdl.com/api/v1/subtitles"
 
-# URL publique absolue de ton Space Hugging Face
 HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "1.8.0",
-    "name": "DZ-Arabic",
-    "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
+    "version": "1.9.0-debug",
+    "name": "DZ-Arabic (Super-Debug)",
+    "description": "Analyse de la réponse SubDL",
     "logo": "https://i.imgur.com/o1hZxni.png",
     "types": ["movie", "series"],
     "catalogs": [],
     "resources": ["subtitles"],
-    "idPrefixes": ["tt", "tmdb"],
-    "stremioAddonsConfig": {
-        "issuer": "https://stremio-addons.net",
-        "signature": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..EIQh4ec7V5HYJ6okcbYLeQ.9RbqBhm-uB_QMS3HZkbWvfhyaIXTldkO0NPWxtQ3Ri4QI3GptJMeoM2j8SofX4kIqF23xlBb6ZsfshAuuzkoBipHnYJy3m2O1TxEsJzTPmjDtkjvdkNMUiUDZMOJWcv0.4ecV2XmLO8uCXdx6QpkDOg"
-    }
+    "idPrefixes": ["tt", "tmdb"]
 }
 
 @app.route('/')
 def root():
     return jsonify(MANIFEST)
-
-@app.route('/favicon.ico')
-def favicon():
-    return "", 204
 
 @app.route('/manifest.json')
 def get_manifest():
@@ -51,7 +42,7 @@ def get_subtitles(type, extra_path):
         
         params = {
             "api_key": API_KEY,
-            "languages": "ar",  # Test en minuscules comme l'exemple JS de la doc
+            "languages": "ar",
             "type": "movie" if type == "movie" else "tv"
         }
 
@@ -63,93 +54,50 @@ def get_subtitles(type, extra_path):
         else:
             main_id = raw_id
 
-        if main_id.startswith('tt'):
-            # Double sécurité : SubDL rejette souvent le 'tt' sur l'endpoint global v1
-            params["imdb_id"] = main_id.replace('tt', '')
-        else:
-            params["tmdb_id"] = main_id
+        # On prépare deux variantes pour le débug
+        id_avec_tt = main_id if main_id.startswith('tt') else f"tt{main_id}"
+        id_sans_tt = main_id.replace('tt', '')
 
-        # Camouflage : On fait croire à SubDL que la requête vient d'un ordinateur sous Windows avec Chrome
+        # ---- TEST 1 : Avec le "tt" ----
+        params["imdb_id"] = id_avec_tt
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Accept": "application/json"
         }
-
-        response = requests.get(BASE_URL, params=params, headers=headers, timeout=10)
         
-        if response.status_code != 200:
-            return jsonify({"subtitles": []})
-            
-        data = response.json()
+        res1 = requests.get(BASE_URL, params=params, headers=headers, timeout=10)
+        json1 = {}
+        try: json1 = res1.json()
+        except: json1 = {"text_error": res1.text}
 
-        if not data.get("status") or "subtitles" not in data:
-            return jsonify({"subtitles": []})
+        # ---- TEST 2 : Sans le "tt" ----
+        params["imdb_id"] = id_sans_tt
+        res2 = requests.get(BASE_URL, params=params, headers=headers, timeout=10)
+        json2 = {}
+        try: json2 = res2.json()
+        except: json2 = {"text_error": res2.text}
 
-        subtitles_stremio = []
-
-        for sub in data["subtitles"]:
-            sub_url_path = sub.get("url")
-            
-            if sub_url_path:
-                if not sub_url_path.startswith('/subtitle/'):
-                    sub_url_path = f"/subtitle/{sub_url_path.lstrip('/')}"
-                
-                download_url = f"https://dl.subdl.com{sub_url_path}"
-                file_name = sub.get("release_name") or sub.get("name") or "Arabic Subtitle"
-                
-                subtitle_entry = {
-                    "id": f"subdl_{sub.get('id', 'file')}",
-                    "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
-                    "lang": "ara",
-                    "name": f"🇸🇦 {file_name[:50]}"
-                }
-                subtitles_stremio.append(subtitle_entry)
-
-        return jsonify({"subtitles": subtitles_stremio})
+        # On renvoie tout à l'écran pour comprendre
+        return jsonify({
+            "INFO_REQUETE": {
+                "id_recu_de_stremio": raw_id,
+                "type_detecte": type,
+                "url_api_attaquee": BASE_URL
+            },
+            "TEST_1_AVEC_TT": {
+                "imdb_id_envoye": id_avec_tt,
+                "http_status": res1.status_code,
+                "reponse_subdl": json1
+            },
+            "TEST_2_SANS_TT": {
+                "imdb_id_envoye": id_sans_tt,
+                "http_status": res2.status_code,
+                "reponse_subdl": json2
+            }
+        })
 
     except Exception as e:
-        print(f"Erreur DZ-Arabic Subtitles: {e}")
-        return jsonify({"subtitles": []})
-
-@app.route('/unzip')
-def unzip_subtitle():
-    try:
-        zip_url = request.args.get('url')
-        if not zip_url:
-            return "URL manquante", 400
-        
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        response = requests.get(zip_url, headers=headers, timeout=15)
-        if response.status_code != 200:
-            return "Fichier non trouvé", 404
-        
-        with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-            for file_name in z.namelist():
-                if "__MACOSX" in file_name:
-                    continue
-                    
-                if file_name.lower().endswith(('.srt', '.vtt')):
-                    subtitle_content = z.read(file_name)
-                    
-                    if file_name.lower().endswith('.srt'):
-                        mimetype = 'text/plain; charset=utf-8'
-                    else:
-                        mimetype = 'text/vtt; charset=utf-8'
-                    
-                    return send_file(
-                        io.BytesIO(subtitle_content),
-                        mimetype=mimetype,
-                        as_attachment=False,
-                        download_name=file_name
-                    )
-        
-        return "Aucun fichier .srt ou .vtt trouvé dans le zip", 404
-        
-    except Exception as e:
-        print(f"Erreur décompression: {e}")
-        return "Erreur lors de la décompression", 500
+        return jsonify({"erreur_crash_code": str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 7860))
