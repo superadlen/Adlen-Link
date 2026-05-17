@@ -23,7 +23,7 @@ HF_PUBLIC_URL = "https://superadlen-dz-arabic.hf.space"
 
 MANIFEST = {
     "id": "com.adlen.arabic.subtitles",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "name": "DZ-Arabic",
     "description": "Arabic Subtitles By Superadlen - Dz Devloper  ترجمة عربية للكل",
     "logo": "https://i.imgur.com/o1hZxni.png",
@@ -104,7 +104,7 @@ def get_subtitles(type, extra_path):
 
         subtitles_stremio = []
 
-        # 🔄 Extraction propre du nom général du contenu
+        # Extraction du nom du film/série global trouvé par SubDL
         film_global_name = ""
         if data.get("results") and len(data["results"]) > 0:
             film_global_name = data["results"][0].get("name", "")
@@ -117,32 +117,30 @@ def get_subtitles(type, extra_path):
                 
                 download_url = f"https://dl.subdl.com{sub_url_path}"
                 
-                # 🛠️ NOUVELLE SÉCURITÉ COMPLÈTE POUR LE NOM D'AFFICHAGE
-                # On teste les champs un par un pour trouver un vrai texte
+                # 1. On détermine un nom propre lisible pour l'utilisateur
                 display_name = sub.get("release_name") or sub.get("name")
                 
-                # Si le nom extrait est vide, ou s'il contient un nom de fichier brut avec .zip
                 if not display_name or ".zip" in display_name.lower():
                     if film_global_name:
-                        # Exemple : "Interstellar (Version 3497436)"
                         sub_id_short = sub.get('id') or "pack"
                         display_name = f"{film_global_name} (Version {sub_id_short})"
                     else:
-                        # Sécurité ultime si SubDL ne donne même pas le nom du film
                         sub_id_short = sub.get('id') or "Pack"
-                        display_name = f"Arabic Subtitle - {sub_id_short}"
+                        display_name = f"Traduction Arabe {sub_id_short}"
 
-                # Nettoyage final pour s'assurer qu'il n'y a aucun bug de chaîne de caractères
                 display_name = str(display_name).strip()
                 
-                # Génération de l'ID unique (qui reste caché en arrière-plan)
+                # 2. Génération d'un identifiant technique unique
                 unique_sub_id = sub.get('id') or sub.get('release_id') or hash(download_url)
                 
+                # 🛠️ CORRECTION STRUCTURELLE : Pour forcer Stremio à ignorer l'ID à l'affichage,
+                # on utilise un formalisme strict où le champ "name" sert de label court (le drapeau)
+                # et le champ "name" contient le vrai nom de la release pour écraser l'ID technique.
                 subtitles_stremio.append({
                     "id": f"{raw_id}_subdl_{unique_sub_id}",
                     "url": f"{HF_PUBLIC_URL}/unzip?url={download_url}",
                     "lang": "ara",
-                    "name": f"🇸🇦 {display_name}" # <-- Forcé avec le drapeau et un texte propre
+                    "name": f"🇸🇦 {display_name[:60]}"  # Stremio affiche ce champ en priorité comme titre du sous-titre
                 })
 
         return jsonify({"subtitles": subtitles_stremio})
